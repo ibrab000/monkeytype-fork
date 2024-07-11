@@ -18,7 +18,7 @@ const router = Router();
 const tagNameValidation = joi
   .string()
   .required()
-  .regex(/^[0-9a-zA-Z_.-]+$/)
+  .regex(/^[0-9a-zA-Z_-]+$/)
   .max(16)
   .messages({
     "string.pattern.base":
@@ -29,7 +29,7 @@ const tagNameValidation = joi
 const customThemeNameValidation = joi
   .string()
   .max(16)
-  .regex(/^[0-9a-zA-Z_.-]+$/)
+  .regex(/^[0-9a-zA-Z_-]+$/)
   .required()
   .messages({
     "string.max": "The name must not exceed 16 characters",
@@ -69,7 +69,7 @@ const usernameValidation = joi
   .string()
   .required()
   .custom((value, helpers) => {
-    if (containsProfanity(value)) {
+    if (containsProfanity(value, "substring")) {
       return helpers.error("string.profanity");
     }
 
@@ -83,7 +83,7 @@ const usernameValidation = joi
     "string.profanity":
       "The username contains profanity. If you believe this is a mistake, please contact us ",
     "string.pattern.base":
-      "Username invalid. Name cannot use special characters or contain more than 16 characters. Can include _ . and - ",
+      "Username invalid. Name cannot use special characters or contain more than 16 characters. Can include _ and - ",
   });
 
 const languageSchema = joi
@@ -209,6 +209,20 @@ router.patch(
     },
   }),
   asyncHandler(UserController.updateEmail)
+);
+
+router.patch(
+  "/password",
+  authenticateRequest({
+    requireFreshToken: true,
+  }),
+  RateLimit.userUpdateEmail,
+  validateRequest({
+    body: {
+      newPassword: joi.string().required(),
+    },
+  }),
+  asyncHandler(UserController.updatePassword)
 );
 
 router.delete(
@@ -517,14 +531,15 @@ const profileDetailsBase = joi
   .string()
   .allow("")
   .custom((value, helpers) => {
-    if (containsProfanity(value)) {
+    if (containsProfanity(value, "word")) {
       return helpers.error("string.profanity");
     }
 
     return value;
   })
   .messages({
-    "string.profanity": "Profanity detected. Please remove it.",
+    "string.profanity":
+      "Profanity detected. Please remove it. (if you believe this is a mistake, please contact us)",
   });
 
 router.patch(
@@ -659,4 +674,28 @@ router.post(
   asyncHandler(UserController.revokeAllTokens)
 );
 
+router.get(
+  "/testActivity",
+  authenticateRequest(),
+  RateLimit.userTestActivity,
+  asyncHandler(UserController.getTestActivity)
+);
+
+router.get(
+  "/currentTestActivity",
+  authenticateRequest({
+    acceptApeKeys: true,
+  }),
+  withApeRateLimiter(RateLimit.userCurrentTestActivity),
+  asyncHandler(UserController.getCurrentTestActivity)
+);
+
+router.get(
+  "/streak",
+  authenticateRequest({
+    acceptApeKeys: true,
+  }),
+  withApeRateLimiter(RateLimit.userStreak),
+  asyncHandler(UserController.getStreak)
+);
 export default router;
